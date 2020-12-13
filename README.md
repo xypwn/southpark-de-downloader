@@ -1,4 +1,4 @@
-# south-park-de-downloader
+# southpark-de-downloader
 Effortlessly download South Park episodes from southpark.de in bulk
 
 ## Setup
