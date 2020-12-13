@@ -6,4 +6,4 @@
 YOUTUBE_DL="./yt-dlc/youtube-dlc"
 
 # Where the downloaded videos will get stored
-SAVEDIR="./downloads"
+OUTDIR="./downloads"

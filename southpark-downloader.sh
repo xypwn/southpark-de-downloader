@@ -2,9 +2,13 @@
 
 source "$(dirname $0)/config.sh"
 
-# We need absolute paths, since we'll be changing directories later
-YOUTUBE_DL="$(readlink -f $(dirname $0))/$YOUTUBE_DL"
-OUTDIR="$(readlink -f $(dirname $0))/$SAVEDIR"
+[ ! -e "$(dirname $0)/$OUTDIR" ] && mkdir -p "$(dirname $0)/$OUTDIR"
+
+# Turn paths into absolute ones, if they aren't already, as we will change directories later
+[ ! "${SAVEDIR::1}" = "/" ] &&
+    OUTDIR="$(readlink -f $(dirname $0)/$OUTDIR)"
+[ ! "${YOUTUBE_DL::1}" = "/" ] && 
+    YOUTUBE_DL="$(readlink -f $(dirname $0)/$YOUTUBE_DL)"
 
 p_info() {
     echo -e "\e[32m>>> $@\e[m"
@@ -159,8 +163,6 @@ download_all() {
 	download_season "$i"
     done
 }
-
-[ ! -e "$OUTDIR" ] && mkdir -p "$OUTDIR"
 
 if [ -n "$OPT_SEASON" ]; then
     get_season_url "$OPT_SEASON"
