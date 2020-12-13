@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 
-source ./config.sh
+source "$(dirname $0)/config.sh"
 
-YOUTUBE_DL="$PWD/$YOUTUBE_DL"
-OUTDIR="$PWD/$SAVEDIR"
+# We need absolute paths, since we'll be changing directories later
+YOUTUBE_DL="$(readlink -f $(dirname $0))/$YOUTUBE_DL"
+OUTDIR="$(readlink -f $(dirname $0))/$SAVEDIR"
 
 p_info() {
     echo -e "\e[32m>>> $@\e[m"
@@ -159,7 +160,7 @@ download_all() {
     done
 }
 
-[ ! -e "$OUTDIR" ] && mkdir "$OUTDIR"
+[ ! -e "$OUTDIR" ] && mkdir -p "$OUTDIR"
 
 if [ -n "$OPT_SEASON" ]; then
     get_season_url "$OPT_SEASON"
