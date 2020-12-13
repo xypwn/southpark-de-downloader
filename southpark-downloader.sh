@@ -20,18 +20,19 @@ p_error() {
 
 usage() {
     echo "Usage:"
-    echo "  $(basename $0) [-E|-D] -a                        -  Download all episodes"
-    echo "  $(basename $0) [-E|-D] -s <season>               -  Download all episodes in the specified season"
-    echo "  $(basename $0) [-E|-D] -s <season> -e <episode>  -  Download the specified episode"
+    echo "  $(basename $0) [OPTIONS] -a                        -  Download all episodes"
+    echo "  $(basename $0) [OPTIONS] -s <season>               -  Download all episodes in the specified season"
+    echo "  $(basename $0) [OPTIONS] -s <season> -e <episode>  -  Download the specified episode"
     echo "Options:"
     echo " -E                                        -  Download episodes in English (default)"
     echo " -D                                        -  Download episodes in German"
+    echo " -p                                        -  Show progress"
 }
 
-unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG
+unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS
 OPT_LANG="EN"
 
-while getopts "haEDs:e:" arg; do
+while getopts "haEDps:e:" arg; do
     case "$arg" in
 	h)
 	    usage
@@ -51,6 +52,9 @@ while getopts "haEDs:e:" arg; do
 	    ;;
 	D)
 	    OPT_LANG="DE"
+	    ;;
+	p)
+	    OPT_PROGRESS=true
 	    ;;
 	?)
 	    echo "Invalid option: -$OPTARG"
@@ -119,6 +123,16 @@ tmp_cleanup() {
     rm -rf "$TMPDIR"
 }
 
+# Monitors size of downloaded video files; takes temp folder as arg
+monitor_progress() {
+    local TMP_DIR="$1"
+    while true; do
+	[ ! -e "$TMP_DIR" ] && break
+	printf " Downloaded: %s\r" $(du -bB M "$TMP_DIR" | cut -f1)
+	sleep 0.5
+    done
+}
+
 # Takes season and episode number as arguments
 download_episode() {
     local SEASON_NUMBER="$1"
@@ -129,6 +143,7 @@ download_episode() {
     [ -e "$OUTFILE" ] && echo "Already downloaded Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}" && return
     p_info "Downloading Season $SEASON_NUMBER Episode $EPISODE_NUMBER ($URL)"
     TMPDIR=$(mktemp -d "/tmp/southparkdownloader.XXXXXXXXXX")
+    [ -n "OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
     pushd "$TMPDIR" > /dev/null
     if ! "$YOUTUBE_DL" "$URL" 2>/dev/null | grep --line-buffered "^\[download\]" | grep -v --line-buffered "^\[download\] Destination:"; then
 	p_info "possible youtube-dl \e[1;31mERROR\e[m"
