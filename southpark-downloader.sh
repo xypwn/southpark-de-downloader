@@ -5,7 +5,7 @@ source "$(dirname $0)/config.sh"
 [ ! -e "$(dirname $0)/$OUTDIR" ] && mkdir -p "$(dirname $0)/$OUTDIR"
 
 # Turn paths into absolute ones, if they aren't already, as we will change directories later
-[ ! "${SAVEDIR::1}" = "/" ] &&
+[ ! "${OUTDIR::1}" = "/" ] &&
     OUTDIR="$(readlink -f $(dirname $0)/$OUTDIR)"
 [ ! "${YOUTUBE_DL::1}" = "/" ] && 
     YOUTUBE_DL="$(readlink -f $(dirname $0)/$YOUTUBE_DL)"
