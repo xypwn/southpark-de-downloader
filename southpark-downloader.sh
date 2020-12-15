@@ -1,14 +1,17 @@
 #!/usr/bin/env sh
 
-source "$(dirname $0)/config.sh"
+source "$(dirname "$0")/config.sh"
 
-[ ! -e "$(dirname $0)/$OUTDIR" ] && mkdir -p "$(dirname $0)/$OUTDIR"
-
-# Turn paths into absolute ones, if they aren't already, as we will change directories later
+# Turn paths into absolute ones, if they aren't already. Will be necessary, since we'll change directories later.
+[ ! "${CACHEDIR::1}" = "/" ] &&
+    CACHEDIR="$(readlink -f "$(dirname "$0")/$CACHEDIR")"
 [ ! "${OUTDIR::1}" = "/" ] &&
-    OUTDIR="$(readlink -f $(dirname $0)/$OUTDIR)"
-[ ! "${YOUTUBE_DL::1}" = "/" ] && 
-    YOUTUBE_DL="$(readlink -f $(dirname $0)/$YOUTUBE_DL)"
+    OUTDIR="$(readlink -f "$(dirname "$0")/$OUTDIR")"
+[ ! "${YOUTUBE_DL::1}" = "/" ] &&
+    YOUTUBE_DL="$(readlink -f "$(dirname "$0")/$YOUTUBE_DL")"
+
+[ ! -e "$OUTDIR" ] && mkdir -p "$OUTDIR"
+[ ! -e "$CACHEDIR" ] && mkdir -p "$CACHEDIR"
 
 p_info() {
     echo -e "\e[32m>>> $@\e[m"
@@ -20,19 +23,25 @@ p_error() {
 
 usage() {
     echo "Usage:"
-    echo "  $(basename $0) [OPTIONS] -a                        -  Download all episodes"
-    echo "  $(basename $0) [OPTIONS] -s <season>               -  Download all episodes in the specified season"
-    echo "  $(basename $0) [OPTIONS] -s <season> -e <episode>  -  Download the specified episode"
+    echo "  $(basename "$0") [OPTIONS] -a                        -  Download all episodes"
+    echo "  $(basename "$0") [OPTIONS] -s <season>               -  Download all episodes of the specified season"
+    echo "  $(basename "$0") [OPTIONS] -s <season> -e <episode>  -  Download the specified episode"
+    echo "  $(basename "$0") -h                                  -  Show help page"
     echo "Options:"
+    echo " -p                                        -  Show progress (default)"
+    echo " -P                                        -  Hide progress"
     echo " -E                                        -  Download episodes in English (default)"
     echo " -D                                        -  Download episodes in German"
-    echo " -p                                        -  Show progress"
+    echo " -u                                        -  Update episode index (default)"
+    echo " -U                                        -  Skip episode index update"
 }
 
-unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS
+unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS OPT_UPDATE_INDEX
 OPT_LANG="EN"
+OPT_PROGRESS=true
+OPT_UPDATE_INDEX=true
 
-while getopts "haEDps:e:" arg; do
+while getopts "pPEDuUas:e:h" arg; do
     case "$arg" in
 	h)
 	    usage
@@ -56,66 +65,71 @@ while getopts "haEDps:e:" arg; do
 	p)
 	    OPT_PROGRESS=true
 	    ;;
+	P)
+	    unset OPT_PROGRESS
+	    echo hi
+	    ;;
+	u)
+	    OPT_UPDATE_INDEX=true
+	    ;;
+	U)
+	    unset OPT_UPDATE_INDEX
+	    ;;
 	?)
-	    echo "Invalid option: -$OPTARG"
 	    usage
 	    exit 1
 	    ;;
     esac
 done
 
-# Parts of the URL differ depending on the language of the website
 if [ "$OPT_LANG" = "DE" ]; then
-    SEASON_1_URL="https://www.southpark.de/seasons/south-park/yjy8n9/staffel-1"
-    REGEX_SEASON_URL="\"/seasons/south-park/[0-9a-z]\+/staffel-[0-9]\+\""
+    INDEX_FILENAME="$CACHEDIR/_episode_index_DE_"
+    INDEX_INITIAL_URL="https://www.southpark.de/folgen/940f8z/south-park-cartman-und-die-analsonde-staffel-1-ep-1"
     REGEX_EPISODE_URL="\"/folgen/[0-9a-z]\+/south-park-[0-9a-z-]\+-staffel-[0-9]\+-ep-[0-9]\+\"" 
 elif [ "$OPT_LANG" = "EN" ]; then
-    SEASON_1_URL="https://www.southpark.de/en/seasons/south-park/yjy8n9/season-1"
-    REGEX_SEASON_URL="\"/en/seasons/south-park/[0-9a-z]\+/season-[0-9]\+\""
+    INDEX_FILENAME="$CACHEDIR/_episode_index_EN_"
+    INDEX_INITIAL_URL="https://www.southpark.de/en/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
     REGEX_EPISODE_URL="\"/en/episodes/[0-9a-z]\+/south-park-[0-9a-z-]\+-season-[0-9]\+-ep-[0-9]\+\"" 
 fi
 
-# Indexes all season page URLs
-index_seasons() {
-    # Get all season URLs by matching the regex
-    SEASON_URLS=$(curl -s "$SEASON_1_URL" | grep -o "$REGEX_SEASON_URL" | tr -d "\"" | sed -E "s/^/https:\/\/www.southpark.de/g")
+update_index() {
+    [ ! -e "$INDEX_FILENAME" ] && echo "$INDEX_INITIAL_URL" > "$INDEX_FILENAME"
+    echo -ne "\e[32m>>> Updating episode index\e[m"
+    while true; do
+	local URL=$(tail -n1 "$INDEX_FILENAME")
+	local NEWURLS=$(curl -s "$URL" | grep -o "$REGEX_EPISODE_URL" | tr -d "\"" | sed -E "s/^/https:\/\/www.southpark.de/g")
+	[ "$URL" = $(printf "$NEWURLS" | tail -n1) ] && break
+	echo "$NEWURLS" >> "$INDEX_FILENAME"
+	echo -ne "\e[32m.\e[m"
+    done
+    # The awk command removes duplicate lines
+    local NEW_INDEX=$(awk '!x[$0]++' "$INDEX_FILENAME")
+    printf "$NEW_INDEX" > "$INDEX_FILENAME"
+    echo
 }
 
-# Indexes all episode URLs of the currently indexed season (can only index 1 season at once, for now)
-index_episodes() {
+# Returns all episode URLs in the specified season
+get_season() {
     local SEASON_NUMBER="$1"
-    get_season_url "$SEASON_NUMBER"
-    local SEASON_URL="$RES"
-    EPISODE_URLS=$(curl -s "$SEASON_URL" | grep -o "$REGEX_EPISODE_URL" | tr -d "\"" | sed -E "s/^/https:\/\/www.southpark.de/g")
-    INDEXED_SEASON="$SEASON_NUMBER"
+    grep "\-${SEASON_NUMBER}-ep-[0-9]\+$" "$INDEX_FILENAME"
 }
 
-################
-# All functions named get_<something> store their result in the RES variable.
-# We're not using command substitution, because then these functions couldn't set variables.
-################
-get_season_url() {
-    local SEASON_NUMBER="$1"
-    [ -z "$SEASON_URLS" ] && index_seasons
-    RES=$(echo "$SEASON_URLS" | grep "\-${SEASON_NUMBER}$")
-}
-
-get_episode_url() {
+# Returns the URL of the specified episode
+get_episode() {
     local SEASON_NUMBER="$1"
     local EPISODE_NUMBER="$2"
-    [ ! "$INDEXED_SEASON" = "$SEASON_NUMBER" ] && index_episodes "$SEASON_NUMBER"
-    RES=$(echo "$EPISODE_URLS" | grep "ep-${EPISODE_NUMBER}$")
+    grep "\-${SEASON_NUMBER}-ep-${EPISODE_NUMBER}$" "$INDEX_FILENAME"
 }
 
 get_num_seasons() {
-    [ -z "$SEASON_URLS" ] && index_seasons
-    RES=$(echo "$SEASON_URLS" | wc -l)
+    # Effectively searches, how many "episode 1s" there are in the index
+    grep "\-[0-9]\+-ep-1$" "$INDEX_FILENAME" | wc -l
 }
 
+# Returns the number of episodes in the specified season
 get_num_episodes() {
     local SEASON_NUMBER="$1"
-    [ ! "$INDEXED_SEASON" = "$SEASON_NUMBER" ] && index_episodes "$SEASON_NUMBER"
-    RES=$(echo "$EPISODE_URLS" | wc -l)
+    get_season "$SEASON_NUMBER" | wc -l
 }
 
 tmp_cleanup() {
@@ -133,17 +147,32 @@ monitor_progress() {
     done
 }
 
+download_interrupt() {
+    p_info "User interrupt received"
+    tmp_cleanup
+    exit 0
+}
+
+merge_interrupt() {
+    p_info "User interrupt received"
+    tmp_cleanup
+    p_info "Cleaning up corrupted output file"
+    rm -rf "$1"
+    exit 0
+}
+
 # Takes season and episode number as arguments
 download_episode() {
     local SEASON_NUMBER="$1"
     local EPISODE_NUMBER="$2"
-    get_episode_url "$SEASON_NUMBER" "$EPISODE_NUMBER"
-    local URL="$RES"
     local OUTFILE="${OUTDIR}/South_Park_S${SEASON_NUMBER}_E${EPISODE_NUMBER}_${OPT_LANG}.mp4"
     [ -e "$OUTFILE" ] && echo "Already downloaded Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}" && return
+    local URL=$(get_episode "$SEASON_NUMBER" "$EPISODE_NUMBER")
+    [ -z "$URL" ] && echo "Unable to download Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}; skipping" && return
     p_info "Downloading Season $SEASON_NUMBER Episode $EPISODE_NUMBER ($URL)"
+    trap download_interrupt SIGINT
     TMPDIR=$(mktemp -d "/tmp/southparkdownloader.XXXXXXXXXX")
-    [ -n "OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
+    [ -n "$OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
     pushd "$TMPDIR" > /dev/null
     if ! "$YOUTUBE_DL" "$URL" 2>/dev/null | grep --line-buffered "^\[download\]" | grep -v --line-buffered "^\[download\] Destination:"; then
 	p_info "possible youtube-dl \e[1;31mERROR\e[m"
@@ -151,43 +180,42 @@ download_episode() {
 	exit 1
     fi
     echo "[download] Merging video files"
-    # Remove all single quotes from video files, as they cause problems
-    for i in ./*.mp4; do mv -n "$i" "$(echo $i | tr -d \')"; done
+    trap "merge_interrupt \"$OUTFILE\"" SIGINT
+    # Remove all single quotes and dashes from video files, as they cause problems
+    for i in ./*.mp4; do mv -n "$i" "$(echo $i | tr -d \'-)"; done
     # Find all video files and write them into the list
     printf "file '%s'\n" ./*.mp4 > list.txt
     # Merge video files
     ffmpeg -safe 0 -f concat -i "list.txt" -c copy "$OUTFILE" 2>/dev/null
     popd > /dev/null
+    trap - SIGINT
     tmp_cleanup
 }
 
 # Takes season number as an argument
 download_season() {
     local SEASON_NUMBER="$1"
-    get_num_episodes "$SEASON_NUMBER"
-    local NUM_EPISODES="$RES"
+    local NUM_EPISODES=$(get_num_episodes "$SEASON_NUMBER")
     for i in $(seq "$NUM_EPISODES"); do
 	download_episode "$SEASON_NUMBER" "$i"
     done
 }
 
 download_all() {
-    get_num_seasons
-    local NUM_SEASONS="$RES"
+    local NUM_SEASONS=$(get_num_seasons)
     for i in $(seq "$NUM_SEASONS"); do
 	download_season "$i"
     done
 }
 
 if [ -n "$OPT_SEASON" ]; then
-    get_season_url "$OPT_SEASON"
-    [ -z "$RES" ] &&
-	p_error "Unable to open Season $OPT_SEASON" &&
+    [ -n "$OPT_UPDATE_INDEX" ] && update_index
+    [ -z "$(get_season $OPT_SEASON)" ] &&
+	p_error "Unable to find Season $OPT_SEASON" &&
 	exit 1
     if [ -n "$OPT_EPISODE" ]; then
-	get_episode_url "$OPT_SEASON" "$OPT_EPISODE"
-	[ -z "$RES" ] &&
-	    p_error "Unable to open Season $OPT_SEASON Episode $OPT_EPISODE" &&
+	[ -z "$(get_episode $OPT_SEASON $OPT_EPISODE)" ] &&
+	    p_error "Unable to find Season $OPT_SEASON Episode $OPT_EPISODE" &&
 	    exit 1
 	p_info "Going to download Season $OPT_SEASON Episode $OPT_EPISODE"
 	download_episode "$OPT_SEASON" "$OPT_EPISODE"
@@ -196,6 +224,7 @@ if [ -n "$OPT_SEASON" ]; then
 	download_season "$OPT_SEASON"
     fi
 elif [ -n "$OPT_ALL" ]; then
+    [ -n "$OPT_UPDATE_INDEX" ] && update_index
     p_info "Going to download ALL episodes"
     download_all
 else
