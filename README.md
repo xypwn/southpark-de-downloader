@@ -2,7 +2,7 @@
 Effortlessly download South Park episodes from southpark.de in bulk
 
 ## Setup
-`git clone https://github.com/xypwn/southpark-de-downloader.git; cd southpark-de-downloader`
+`git clone https://git.nobrain.org/r4/southpark-de-downloader.git; cd southpark-de-downloader`
 
 `./init.sh` this will download youtube-dlc and apply a patch for english episodes.
 
