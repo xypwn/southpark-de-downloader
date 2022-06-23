@@ -40,7 +40,7 @@ usage() {
 	echo " -d                                        -  Dry run: don't download, just print out URLs"
 }
 
-unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS OPT_UPDATE_INDEX OPT_DRY
+unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS OPT_UPDATE_INDEX OPT_UPDATE_INDEX_EXPLICIT OPT_DRY
 OPT_LANG="EN"
 OPT_PROGRESS=true
 OPT_UPDATE_INDEX=true
@@ -75,6 +75,7 @@ while getopts "pPEDuUdas:e:h" arg; do
 			;;
 		u)
 			OPT_UPDATE_INDEX=true
+			OPT_UPDATE_INDEX_EXPLICIT=true
 			;;
 		U)
 			unset OPT_UPDATE_INDEX
@@ -236,6 +237,8 @@ elif [ -n "$OPT_ALL" ]; then
 	[ -n "$OPT_UPDATE_INDEX" ] && update_index
 	p_info "Going to download ALL episodes"
 	download_all
+elif [ -n "$OPT_UPDATE_INDEX_EXPLICIT" ] && [ -n "$OPT_UPDATE_INDEX" ]; then
+	update_index
 else
 	usage
 	exit 1
