@@ -93,26 +93,26 @@ done
 if [ "$OPT_LANG" = "DE" ]; then
 	INDEX_FILENAME="$CACHEDIR/_episode_index_DE_"
 	INDEX_INITIAL_URL="https://www.southpark.de/folgen/940f8z/south-park-cartman-und-die-analsonde-staffel-1-ep-1"
-	REGEX_EPISODE_URL="\"/folgen/[0-9a-z]\+/south-park-[0-9a-z-]\+-staffel-[0-9]\+-ep-[0-9]\+\""
+	REGEX_EPISODE_URL="/folgen/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-staffel-[0-9]\\+-ep-[0-9]\\+"
 elif [ "$OPT_LANG" = "EN" ]; then
 	INDEX_FILENAME="$CACHEDIR/_episode_index_EN_"
 	INDEX_INITIAL_URL="https://www.southpark.de/en/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
-	REGEX_EPISODE_URL="\"/en/episodes/[0-9a-z]\+/south-park-[0-9a-z-]\+-season-[0-9]\+-ep-[0-9]\+\""
+	REGEX_EPISODE_URL="/en/episodes/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-season-[0-9]\\+-ep-[0-9]\\+"
 fi
 
 update_index() {
 	[ ! -e "$INDEX_FILENAME" ] && echo "$INDEX_INITIAL_URL" > "$INDEX_FILENAME"
 	echo -ne "\e[32m>>> Updating episode index\e[m"
 	while true; do
-		local URL="$(tail -n1 "$INDEX_FILENAME")"
-		local NEWURLS="$(curl -s "$URL" | grep -o "$REGEX_EPISODE_URL" | tr -d "\"" | sed -E "s/^/https:\/\/www.southpark.de/g")"
-		[ "$URL" = "$(printf "$NEWURLS" | tail -n1)" ] && break
+		local SEEDURL="$(tail -n1 "$INDEX_FILENAME" | tr -d '\n')"
+		local HTML="$(curl -s "$SEEDURL")"
+		local URLS="$(echo -n "$HTML" | sed 's@</a>@\n@g' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southpark.de@g")"
+		# The sed command only retains all matches after the seed URL
+		local NEWURLS="$(echo -n "$URLS" | sed -n "\\@^$SEEDURL\$@{:1;n;p;b1}")"
+		[ -z "$NEWURLS" ] && break
 		echo "$NEWURLS" >> "$INDEX_FILENAME"
 		echo -ne "\e[32m.\e[m"
 	done
-	# The awk command removes duplicate lines
-	local NEW_INDEX="$(awk '!x[$0]++' "$INDEX_FILENAME")"
-	printf "$NEW_INDEX" > "$INDEX_FILENAME"
 	echo
 }
 
