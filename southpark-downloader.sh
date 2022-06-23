@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
-source "$(dirname "$0")/config.sh"
+# Resolve executable directory
+DIR="$(dirname "$(readlink -e "$0")")"
 
-# Turn paths into absolute ones, if they aren't already. Will be necessary, since we'll change directories later.
+source "$DIR/config.sh"
+
+# Turn paths into absolute ones if they aren't already. Will be necessary since we'll change directories later.
 [ ! "${CACHEDIR::1}" = "/" ] &&
-	CACHEDIR="$(readlink -f "$(dirname "$0")/$CACHEDIR")"
+	CACHEDIR="$DIR/$CACHEDIR"
 [ ! "${OUTDIR::1}" = "/" ] &&
-	OUTDIR="$(readlink -f "$(dirname "$0")/$OUTDIR")"
+	OUTDIR="$DIR/$OUTDIR"
 [ ! "${YOUTUBE_DL::1}" = "/" ] &&
-	YOUTUBE_DL="$(readlink -f "$(dirname "$0")/$YOUTUBE_DL")"
+	YOUTUBE_DL="$DIR/$YOUTUBE_DL"
 
 [ ! -e "$OUTDIR" ] && mkdir -p "$OUTDIR"
 [ ! -e "$CACHEDIR" ] && mkdir -p "$CACHEDIR"

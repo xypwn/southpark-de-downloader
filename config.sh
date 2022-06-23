@@ -2,7 +2,8 @@
 # South Park Downloader Configuration File #
 ############################################
 
-# Relative or absolute paths are allowed. Please DON'T use ~/, but rather $HOME or /home/$USER.
+# Absolute paths or paths relative to the executable are allowed.
+# Please DON'T use ~/, but rather $HOME or /home/$USER.
 
 # youtube-dl (or youtube-dlc) executable path
 YOUTUBE_DL="./yt-dlc/youtube-dlc"
