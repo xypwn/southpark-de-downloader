@@ -206,7 +206,9 @@ merge_interrupt() {
 download_episode() {
 	local SEASON_NUMBER="$1"
 	local EPISODE_NUMBER="$2"
-	local OUTFILE="${OUTDIR}/South_Park_S${SEASON_NUMBER}_E${EPISODE_NUMBER}_${OPT_LANG}.mp4"
+	local SEASON_STRING="$(printf "%02d" "$SEASON_NUMBER")"
+	local EPISODE_STRING="$(printf "%02d" "$EPISODE_NUMBER")"
+	local OUTFILE="${OUTDIR}/South_Park_${OPT_LANG}_S${SEASON_STRING}_E${EPISODE_STRING}.mp4"
 	[ -e "$OUTFILE" ] && echo "Already downloaded Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}" && return
 	local URL="$(get_episode "$SEASON_NUMBER" "$EPISODE_NUMBER")"
 	[ -z "$URL" ] && echo "Unable to download Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}; skipping" && return
