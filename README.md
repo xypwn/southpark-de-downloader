@@ -4,7 +4,7 @@ Effortlessly download South Park episodes from southpark.de in bulk
 ## Setup
 `git clone https://git.nobrain.org/r4/southpark-de-downloader.git; cd southpark-de-downloader`
 
-`./init.sh` this will download youtube-dlc and apply a patch for english episodes.
+On the first run, it will download [yt-dlp](https://github.com/yt-dlp/yt-dlp). If you don't want this / already have yt-dlp, you can set your own path in `config.sh`.
 
 ## Usage
 `./southpark-downloader.sh -h` to show usage instructions
