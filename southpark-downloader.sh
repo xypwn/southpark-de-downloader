@@ -16,6 +16,31 @@ source "$DIR/config.sh"
 [ ! -e "$OUTDIR" ] && mkdir -p "$OUTDIR"
 [ ! -e "$CACHEDIR" ] && mkdir -p "$CACHEDIR"
 
+# Initialize youtube-dlp if necessary
+init() {
+	local CUSTOM_PYTHON=
+
+	if ! which python > /dev/null; then
+		if which python3 > /dev/null; then
+			echo ">>> python not found, using python3 instead"
+			CUSTOM_PYTHON=python3
+		else
+			echo ">>> No python executable found, please install python or python3"
+			exit 1
+		fi
+	fi
+
+	if [ ! -e yt-dlp/ ]; then
+		echo ">>> Cloning youtube-dlp repo" &&
+		git clone -c advice.detachedHead=false --depth 1 --branch "2023.03.04" "https://github.com/yt-dlp/yt-dlp.git"
+	fi
+
+	echo ">>> Building youtube-dlp"
+	make -C yt-dlp/ yt-dlp
+	[ -n "$CUSTOM_PYTHON" ] &&
+		sed -i "1c\\#!/usr/bin/env $CUSTOM_PYTHON" yt-dlp/yt-dlp
+}
+
 p_info() {
 	echo -e "\e[32m>>> $@\e[m"
 }
@@ -38,14 +63,16 @@ usage() {
 	echo " -u                                        -  Update episode index (default)"
 	echo " -U                                        -  Skip episode index update"
 	echo " -d                                        -  Dry run: don't download, just print out URLs"
+	echo " -i                                        -  Re-initialize yt-dlp"
 }
 
-unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_EN OPT_LANG OPT_PROGRESS OPT_UPDATE_INDEX OPT_UPDATE_INDEX_EXPLICIT OPT_DRY
+unset DOING_SOMETHING
+unset OPT_SEASON OPT_EPISODE OPT_ALL OPT_LANG OPT_PROGRESS OPT_UPDATE_INDEX OPT_DRY OPT_REINIT
 OPT_LANG="EN"
 OPT_PROGRESS=true
 OPT_UPDATE_INDEX=true
 
-while getopts "pPEDuUdas:e:h" arg; do
+while getopts "pPEDuUdais:e:h" arg; do
 	case "$arg" in
 		h)
 			usage
@@ -53,12 +80,15 @@ while getopts "pPEDuUdas:e:h" arg; do
 			;;
 		s)
 			OPT_SEASON="$OPTARG"
+			DOING_SOMETHING=true
 			;;
 		e)
 			OPT_EPISODE="$OPTARG"
+			DOING_SOMETHING=true
 			;;
 		a)
 			OPT_ALL=true
+			DOING_SOMETHING=true
 			;;
 		E)
 			OPT_LANG="EN"
@@ -71,17 +101,20 @@ while getopts "pPEDuUdas:e:h" arg; do
 			;;
 		P)
 			unset OPT_PROGRESS
-			echo hi
 			;;
 		u)
 			OPT_UPDATE_INDEX=true
-			OPT_UPDATE_INDEX_EXPLICIT=true
+			DOING_SOMETHING=true
 			;;
 		U)
 			unset OPT_UPDATE_INDEX
 			;;
 		d)
 			OPT_DRY=true
+			;;
+		i)
+			OPT_REINIT=true
+			DOING_SOMETHING=true
 			;;
 		?)
 			usage
@@ -218,8 +251,29 @@ download_all() {
 	done
 }
 
+[ -z "$DOING_SOMETHING" ] && usage && exit 1
+
+[ -n "$OPT_REINIT" ] &&
+	[ "$YOUTUBE_DL" != "./yt-dlp/yt-dlp" ] &&
+	echo 'Please change YOUTUBE_DL back to "./yt-dlp/yt-dlp" in order to re-initialize'
+
+if [ "$YOUTUBE_DL" = "./yt-dlp/yt-dlp" ] &&
+	[ ! -e yt-dlp ] ||
+	([ -n "$OPT_REINIT" ] && rm -rf yt-dlp/)
+then
+	init
+fi
+
+if [ -n "$OPT_UPDATE_INDEX" ]; then
+	update_index
+fi
+
+if [ -n "$OPT_EPISODE" ] && [ -z "$OPT_SEASON" ]; then
+	echo "Season not specified, assuming season 1"
+	OPT_SEASON=1
+fi
+
 if [ -n "$OPT_SEASON" ]; then
-	[ -n "$OPT_UPDATE_INDEX" ] && update_index
 	[ -z "$(get_season $OPT_SEASON)" ] &&
 		p_error "Unable to find Season $OPT_SEASON" &&
 		exit 1
@@ -234,12 +288,6 @@ if [ -n "$OPT_SEASON" ]; then
 		download_season "$OPT_SEASON"
 	fi
 elif [ -n "$OPT_ALL" ]; then
-	[ -n "$OPT_UPDATE_INDEX" ] && update_index
 	p_info "Going to download ALL episodes"
 	download_all
-elif [ -n "$OPT_UPDATE_INDEX_EXPLICIT" ] && [ -n "$OPT_UPDATE_INDEX" ]; then
-	update_index
-else
-	usage
-	exit 1
 fi
