@@ -30,15 +30,15 @@ init() {
 		fi
 	fi
 
-	if [ ! -e yt-dlp/ ]; then
+	if [ ! -e "$DIR/yt-dlp" ]; then
 		echo ">>> Cloning youtube-dlp repo" &&
-		git clone -c advice.detachedHead=false --depth 1 --branch "2023.03.04" "https://github.com/yt-dlp/yt-dlp.git"
+		git clone -c advice.detachedHead=false --depth 1 --branch "2023.03.04" "https://github.com/yt-dlp/yt-dlp.git" "$DIR/yt-dlp"
 	fi
 
 	echo ">>> Building youtube-dlp"
-	make -C yt-dlp/ yt-dlp
+	make -C "$DIR/yt-dlp" yt-dlp
 	[ -n "$CUSTOM_PYTHON" ] &&
-		sed -i "1c\\#!/usr/bin/env $CUSTOM_PYTHON" yt-dlp/yt-dlp
+		sed -i "1c\\#!/usr/bin/env $CUSTOM_PYTHON" "$DIR/yt-dlp"
 }
 
 p_info() {
@@ -256,12 +256,12 @@ download_all() {
 [ -z "$DOING_SOMETHING" ] && usage && exit 1
 
 [ -n "$OPT_REINIT" ] &&
-	[ "$YOUTUBE_DL" != "./yt-dlp/yt-dlp" ] &&
+	[ "$YOUTUBE_DL" != "$DIR/./yt-dlp/yt-dlp" ] &&
 	echo 'Please change YOUTUBE_DL back to "./yt-dlp/yt-dlp" in order to re-initialize'
 
-if [ "$YOUTUBE_DL" = "./yt-dlp/yt-dlp" ] &&
-	[ ! -e yt-dlp ] ||
-	([ -n "$OPT_REINIT" ] && rm -rf yt-dlp/)
+if [ "$YOUTUBE_DL" = "$DIR/./yt-dlp/yt-dlp" ] &&
+	[ ! -e "$DIR/yt-dlp" ] ||
+	([ -n "$OPT_REINIT" ] && rm -rf "$DIR/yt-dlp")
 then
 	init
 fi
