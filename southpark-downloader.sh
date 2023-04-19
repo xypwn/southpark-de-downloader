@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+# GNU hates him
+export POSIXLY_CORRECT=1
+
 # Resolve executable directory
-DIR="$(dirname "$(readlink -e "$0")")"
+DIR="$(dirname "$(readlink -f "$0")")"
 
 source "$DIR/config.sh"
 
@@ -139,11 +142,11 @@ update_index() {
 	while true; do
 		local SEEDURL="$(tail -n1 "$INDEX_FILENAME" | tr -d '\n')"
 		local HTML="$(curl -s "$SEEDURL")"
-		local URLS="$(echo -n "$HTML" | sed 's@</a>@\n@g' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southpark.de@g")"
+		local URLS="$(echo -n "$HTML" | sed 's@</a>@|@g' | tr '|' '\n' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southpark.de@g" | tr '\n' '|')"
 		# The sed command only retains all matches after the seed URL
-		local NEWURLS="$(echo -n "$URLS" | sed -n "\\@^$SEEDURL\$@{:1;n;p;b1}")"
+		local NEWURLS="$(echo -n "$URLS" | tr '|' '\n' | sed -n "\\@^$SEEDURL\$@,\$p" | tail -n +2 | tr '\n' '|')"
 		[ -z "$NEWURLS" ] && break
-		echo "$NEWURLS" >> "$INDEX_FILENAME"
+		echo -n "$NEWURLS" | tr '|' '\n' >> "$INDEX_FILENAME"
 		echo -ne "\e[32m.\e[m"
 	done
 	echo
@@ -183,7 +186,7 @@ monitor_progress() {
 	local TMP_DIR="$1"
 	while true; do
 		[ ! -e "$TMP_DIR" ] && break
-		printf " Downloaded: %s\r" "$(du -bB M "$TMP_DIR" | cut -f1)"
+		printf " Downloaded: %sMB\r" "$(du -m "$TMP_DIR" | cut -f1)"
 		sleep 0.5
 	done
 }
@@ -217,8 +220,8 @@ download_episode() {
 	trap download_interrupt SIGINT
 	TMPDIR="$(mktemp -d "/tmp/southparkdownloader.XXXXXXXXXX")"
 	[ -n "$OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
-	pushd "$TMPDIR" > /dev/null
-	if ! "$YOUTUBE_DL" "$URL" 2>/dev/null | grep --line-buffered "^\[download\]" | grep -v --line-buffered "^\[download\] Destination:"; then
+	cd "$TMPDIR" > /dev/null
+	if ! "$YOUTUBE_DL" "$URL" 2>/dev/null | sed -n '/^\[download\] Destination:/!p' | sed -n '/^\[download\]/p'; then
 		p_info "possible youtube-dl \e[1;31mERROR\e[m"
 		tmp_cleanup
 		exit 1
@@ -231,7 +234,7 @@ download_episode() {
 	printf "file '%s'\n" ./*.mp4 > list.txt
 	# Merge video files
 	ffmpeg -safe 0 -f concat -i "list.txt" -c copy "$OUTFILE" 2>/dev/null
-	popd > /dev/null
+	cd - > /dev/null
 	trap - SIGINT
 	fi
 	tmp_cleanup
