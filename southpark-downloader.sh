@@ -152,6 +152,14 @@ update_index() {
 	echo
 }
 
+REGEX_TITLE='<meta data-rh="true" property="search:episodeTitle" content="\(.*\)"/><meta data-rh="true" property="search:duration"'
+
+# Returns the episode title given a URL
+get_title() {
+	local URL="$1"
+	curl -s "$URL" | sed -n "s@.*$REGEX_TITLE.*@\1@p"
+}
+
 # Returns all episode URLs in the specified season
 get_season() {
 	local SEASON_NUMBER="$1"
@@ -215,18 +223,21 @@ download_episode() {
 	[ -e "$OUTFILE" ] && echo "Already downloaded Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}" && return
 	local URL="$(get_episode "$SEASON_NUMBER" "$EPISODE_NUMBER")"
 	[ -z "$URL" ] && echo "Unable to download Season ${SEASON_NUMBER} Episode ${EPISODE_NUMBER}; skipping" && return
-	p_info "Downloading Season $SEASON_NUMBER Episode $EPISODE_NUMBER ($URL)"
+	local TITLE="$(get_title "$URL")"
+	p_info "Downloading S$SEASON_NUMBER E$EPISODE_NUMBER: $TITLE"
 	if [ -z "$OPT_DRY" ]; then
 	trap download_interrupt SIGINT
 	TMPDIR="$(mktemp -d "/tmp/southparkdownloader.XXXXXXXXXX")"
 	[ -n "$OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
 	cd "$TMPDIR" > /dev/null
-	if ! "$YOUTUBE_DL" "$URL" 2>/dev/null | sed -n '/^\[download\] Destination:/!p' | sed -n '/^\[download\]/p'; then
-		p_info "possible youtube-dl \e[1;31mERROR\e[m"
+	if ! "$YOUTUBE_DL" "$URL" 2>/dev/null >log; then
+		p_error "Possible youtube-dl error! Log:"
+		cat log
+		p_error "End log"
 		tmp_cleanup
 		exit 1
 	fi
-	echo "[download] Merging video files"
+	p_info "Merging video files"
 	trap "merge_interrupt \"$OUTFILE\"" SIGINT
 	# Remove all single quotes and dashes from video files, as they cause problems
 	for i in ./*.mp4; do mv -n "$i" "$(echo $i | tr -d \'-)"; done
