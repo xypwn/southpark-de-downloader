@@ -230,12 +230,12 @@ download_episode() {
 	TMPDIR="$(mktemp -d "/tmp/southparkdownloader.XXXXXXXXXX")"
 	[ -n "$OPT_PROGRESS" ] && monitor_progress "$TMPDIR"&
 	cd "$TMPDIR" > /dev/null
-	if ! "$YOUTUBE_DL" "$URL" 2>/dev/null >log; then
+	if ! "$YOUTUBE_DL" "$URL" >log 2>&1; then
 		p_error "Possible youtube-dl error! Log:"
 		cat log
 		p_error "End log"
 		tmp_cleanup
-		exit 1
+		return
 	fi
 	p_info "Merging video files"
 	trap "merge_interrupt \"$OUTFILE\"" SIGINT
@@ -247,8 +247,8 @@ download_episode() {
 	ffmpeg -safe 0 -f concat -i "list.txt" -c copy "$OUTFILE" 2>/dev/null
 	cd - > /dev/null
 	trap - SIGINT
-	fi
 	tmp_cleanup
+	fi
 }
 
 # Takes season number as an argument
