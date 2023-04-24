@@ -1,5 +1,6 @@
 # southpark-de-downloader
-Effortlessly download South Park episodes from southpark.de in bulk
+Effortlessly download South Park episodes from official sources in bulk.
+Now with partial support for websites other than southpark.de!
 
 ## Setup
 `git clone https://git.nobrain.org/r4/southpark-de-downloader.git; cd southpark-de-downloader`
