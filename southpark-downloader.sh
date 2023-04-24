@@ -132,7 +132,7 @@ done
 
 BASE_URL="$(curl -LsI -o /dev/null -w '%{url_effective}' 'https://southparkstudios.com/' | sed 's@/$@@')"
 BASE_DOMAIN="$(echo "$BASE_URL" | sed -n 's@https://\(www\.\|\)\(.*\)@\2@p')"
-INDEX_FILENAME="$CACHEDIR/_episode_index_$(echo "$BASE_DOMAIN" | tr '.' '_')_"
+INDEX_FILENAME="$CACHEDIR/_episode_index_$(echo "$BASE_DOMAIN" | tr '.' '_')_${OPT_LANG}_"
 if [ "$OPT_LANG" = "DE" ]; then
 	[ "$BASE_DOMAIN" != 'southpark.de' ] && p_error "Your region is on $BASE_DOMAIN. You need to be in Germany (southpark.de) for German episodes. If you don't want to buy a plane ticket to Germany, you can also use a VPN." && exit 1
 	INDEX_INITIAL_URL="$BASE_URL/folgen/940f8z/south-park-cartman-und-die-analsonde-staffel-1-ep-1"
