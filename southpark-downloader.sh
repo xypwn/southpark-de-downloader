@@ -132,8 +132,8 @@ if [ "$OPT_LANG" = "DE" ]; then
 	REGEX_EPISODE_URL="/folgen/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-staffel-[0-9]\\+-ep-[0-9]\\+"
 elif [ "$OPT_LANG" = "EN" ]; then
 	INDEX_FILENAME="$CACHEDIR/_episode_index_EN_"
-	INDEX_INITIAL_URL="https://www.southpark.de/en/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
-	REGEX_EPISODE_URL="/en/episodes/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-season-[0-9]\\+-ep-[0-9]\\+"
+	INDEX_INITIAL_URL="https://www.southparkstudios.com/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
+	REGEX_EPISODE_URL="/episodes/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-season-[0-9]\\+-ep-[0-9]\\+"
 fi
 
 update_index() {
@@ -142,7 +142,7 @@ update_index() {
 	while true; do
 		local SEEDURL="$(tail -n1 "$INDEX_FILENAME" | tr -d '\n')"
 		local HTML="$(curl -s "$SEEDURL")"
-		local URLS="$(echo -n "$HTML" | sed 's@</a>@|@g' | tr '|' '\n' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southpark.de@g" | tr '\n' '|')"
+		local URLS="$(echo -n "$HTML" | sed 's@</a>@|@g' | tr '|' '\n' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southparkstudios.com@g" | tr '\n' '|')"
 		# The sed command only retains all matches after the seed URL
 		local NEWURLS="$(echo -n "$URLS" | tr '|' '\n' | sed -n "\\@^$SEEDURL\$@,\$p" | tail -n +2 | tr '\n' '|')"
 		[ -z "$NEWURLS" ] && break
