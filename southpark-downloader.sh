@@ -48,6 +48,10 @@ p_info() {
 	echo -e "\e[32m>>> $@\e[m"
 }
 
+p_warning() {
+	echo -e "\e[33m>>> $@\e[m"
+}
+
 p_error() {
 	echo -e "\e[1;31m>>> $@\e[m"
 }
@@ -126,14 +130,27 @@ while getopts "pPEDuUdais:e:h" arg; do
 	esac
 done
 
+BASE_URL="$(curl -LsI -o /dev/null -w '%{url_effective}' 'https://southparkstudios.com/' | sed 's@/$@@')"
+BASE_DOMAIN="$(echo "$BASE_URL" | sed -n 's@https://\(www\.\|\)\(.*\)@\2@p')"
+INDEX_FILENAME="$CACHEDIR/_episode_index_$(echo "$BASE_DOMAIN" | tr '.' '_')_"
 if [ "$OPT_LANG" = "DE" ]; then
-	INDEX_FILENAME="$CACHEDIR/_episode_index_DE_"
-	INDEX_INITIAL_URL="https://www.southpark.de/folgen/940f8z/south-park-cartman-und-die-analsonde-staffel-1-ep-1"
+	[ "$BASE_DOMAIN" != 'southpark.de' ] && p_error "Your region is on $BASE_DOMAIN. You need to be in Germany (southpark.de) for German episodes. If you don't want to buy a plane ticket to Germany, you can also use a VPN." && exit 1
+	INDEX_INITIAL_URL="$BASE_URL/folgen/940f8z/south-park-cartman-und-die-analsonde-staffel-1-ep-1"
 	REGEX_EPISODE_URL="/folgen/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-staffel-[0-9]\\+-ep-[0-9]\\+"
 elif [ "$OPT_LANG" = "EN" ]; then
-	INDEX_FILENAME="$CACHEDIR/_episode_index_EN_"
-	INDEX_INITIAL_URL="https://www.southpark.de/en/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
-	REGEX_EPISODE_URL="/en/episodes/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-season-[0-9]\\+-ep-[0-9]\\+"
+	PATH_LANG_PREFIX=
+	case "$BASE_DOMAIN" in
+		'southpark.de'|'southpark.lat')
+			PATH_LANG_PREFIX='/en'
+			;;
+		'southparkstudios.com'|'southparkstudios.nu'|'southparkstudios.dk'|'southpark.cc.com'|'southpark.nl')
+			;;
+		*)
+			p_warning "Your region is on $BASE_DOMAIN, which is currently unknown. Please open an issue on GitHub. If the program doesn't work, you can try to VPN into Germany."
+			;;
+	esac
+	INDEX_INITIAL_URL="$BASE_URL$PATH_LANG_PREFIX/episodes/940f8z/south-park-cartman-gets-an-anal-probe-season-1-ep-1"
+	REGEX_EPISODE_URL="$PATH_LANG_PREFIX/episodes/[0-9a-z]\\+/south-park-[0-9a-z-]\\+-season-[0-9]\\+-ep-[0-9]\\+"
 fi
 
 update_index() {
@@ -142,7 +159,7 @@ update_index() {
 	while true; do
 		local SEEDURL="$(tail -n1 "$INDEX_FILENAME" | tr -d '\n')"
 		local HTML="$(curl -s "$SEEDURL")"
-		local URLS="$(echo -n "$HTML" | sed 's@</a>@|@g' | tr '|' '\n' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@https://www.southpark.de@g" | tr '\n' '|')"
+		local URLS="$(echo -n "$HTML" | sed 's@</a>@|@g' | tr '|' '\n' | sed -n "s@.*href=\"\\($REGEX_EPISODE_URL\\)\".*@\\1@p" | sed "s@^@$BASE_URL@g" | tr '\n' '|')"
 		# The sed command only retains all matches after the seed URL
 		local NEWURLS="$(echo -n "$URLS" | tr '|' '\n' | sed -n "\\@^$SEEDURL\$@,\$p" | tail -n +2 | tr '\n' '|')"
 		[ -z "$NEWURLS" ] && break
