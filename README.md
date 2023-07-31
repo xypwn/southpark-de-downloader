@@ -3,7 +3,7 @@ Effortlessly download South Park episodes from official sources in bulk.
 Now with partial support for websites other than southpark.de!
 
 ## Setup
-`git clone https://git.nobrain.org/r4/southpark-de-downloader.git; cd southpark-de-downloader`
+`git clone https://github.com/xypwn/southpark-de-downloader.git; cd southpark-de-downloader`
 
 On the first run, it will download [yt-dlp](https://github.com/yt-dlp/yt-dlp). If you don't want this / already have yt-dlp, you can set your own path in `config.sh`.
 
