@@ -2,6 +2,10 @@
 Effortlessly download South Park episodes from official sources in bulk.
 Now with partial support for websites other than southpark.de!
 
+---
+## For my GUI version, which doesn't depend on any external programs and is cross-platform, see [southpark-downloader-ui](https://github.com/xypwn/southpark-downloader-ui)
+---
+
 ## Setup
 `git clone https://github.com/xypwn/southpark-de-downloader.git; cd southpark-de-downloader`
 
